@@ -1,7 +1,7 @@
 """有效短回覆不再失敗；壞格式自動重試，牌組與問題不改變。"""
 import asyncio
 import json
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 import httpx
 import pytest
 from app.errors import ApiError
@@ -64,7 +64,7 @@ def test_malformed_answer_retries_once_with_same_question_and_cards(client, monk
     assert '上一回合' in captured[1]['systemInstruction']['parts'][0]['text']
 
 
-@pytest.mark.parametrize('http_status,expected_calls,error_code', [(200, 2, 'INVALID_MODEL_OUTPUT'), (429, 1, 'AI_QUOTA_EXCEEDED'), (403, 1, 'AI_AUTH_ERROR'), (503, 1, 'AI_UNAVAILABLE'), (400, 1, 'AI_CONFIG_ERROR')])
+@pytest.mark.parametrize('http_status,expected_calls,error_code', [(200, 2, 'INVALID_MODEL_OUTPUT'), (429, 1, 'AI_QUOTA_EXCEEDED'), (403, 1, 'AI_AUTH_ERROR'), (503, 3, 'AI_UNAVAILABLE'), (400, 1, 'AI_CONFIG_ERROR')])
 def test_retry_is_bounded_and_quota_or_auth_is_not_retried(client, monkeypatch, caplog, http_status, expected_calls, error_code):
     reading, headers = create(client)
     drawn = draw_three(client, reading, headers)
@@ -80,7 +80,7 @@ def test_retry_is_bounded_and_quota_or_auth_is_not_retried(client, monkeypatch, 
             payload = completed({}) if http_status == 200 else {'error': {
                 'status': 'UNAVAILABLE', 'message': f'test-key {drawn["question"]}'}}
             return httpx.Response(http_status, json=payload)
-    with patch('app.services.interpreter.httpx.AsyncClient', FakeClient):
+    with patch('app.services.interpreter.httpx.AsyncClient', FakeClient), patch('app.services.interpreter.asyncio.sleep', new_callable=AsyncMock):
         with pytest.raises(ApiError) as exc:
             asyncio.run(interpret_reading(drawn))
     assert exc.value.code == error_code
@@ -89,3 +89,48 @@ def test_retry_is_bounded_and_quota_or_auth_is_not_retried(client, monkeypatch, 
     assert drawn['question'] not in caplog.text
     if http_status != 200:
         assert f'http_status={http_status}' in caplog.text
+
+
+@pytest.mark.parametrize('statuses', [(503, 503, 200), (500, 200), (502, 200), (504, 200)])
+def test_temporary_outage_recovers_without_changing_cards(client, monkeypatch, statuses):
+    reading, headers = create(client)
+    drawn = draw_three(client, reading, headers)
+    monkeypatch.setenv('GEMINI_API_KEY', 'test-key')
+    monkeypatch.setenv('GEMINI_MODEL', 'test-model')
+    requests = []
+    class FakeClient:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def post(self, url, **kwargs):
+            status = statuses[len(requests)]
+            requests.append(kwargs['json'])
+            return httpx.Response(status, json=completed(short_result(drawn)) if status == 200
+                                  else {'error': {'status': 'UNAVAILABLE'}})
+    with patch('app.services.interpreter.httpx.AsyncClient', FakeClient), patch(
+        'app.services.interpreter.asyncio.sleep', new_callable=AsyncMock
+    ) as sleep:
+        assert asyncio.run(interpret_reading(drawn)) == short_result(drawn)
+    assert len(requests) == len(statuses)
+    assert all(request == requests[0] for request in requests)
+    delays = [call.args[0] for call in sleep.await_args_list]
+    assert 2 <= delays[0] <= 3
+    if len(delays) == 2:
+        assert 5 <= delays[1] <= 6
+
+
+def test_retry_wait_shares_total_timeout(client, monkeypatch):
+    reading, headers = create(client)
+    drawn = draw_three(client, reading, headers)
+    monkeypatch.setenv('GEMINI_API_KEY', 'test-key')
+    monkeypatch.setenv('GEMINI_MODEL', 'test-model')
+    original_timeout = asyncio.timeout
+    async def unavailable(*args, **kwargs):
+        raise ApiError(502, 'AI_UNAVAILABLE', 'busy')
+    with patch('app.services.interpreter.generate_interpretation', unavailable), patch(
+        'app.services.interpreter.asyncio.timeout', side_effect=lambda seconds: original_timeout(0.01)
+    ) as timeout:
+        with pytest.raises(ApiError) as exc:
+            asyncio.run(interpret_reading(drawn))
+    assert exc.value.code == 'AI_UNAVAILABLE'
+    timeout.assert_called_once_with(45)

@@ -4,6 +4,7 @@ import os
 import re
 import asyncio
 import logging
+import random
 import httpx
 from pydantic import ValidationError
 from app.config import ROOT
@@ -34,14 +35,22 @@ async def interpret_reading(reading: dict) -> dict:
         raise ApiError(503, 'AI_NOT_CONFIGURED', 'GEMINI_MODEL 必須是有效的模型名稱。')
     data = {key: reading[key] for key in ('question', 'options', 'spread', 'cards')}
     try:
-        # 自動修復最多一次，總等待時間仍以 45 秒為限，避免雙倍等待。
+        # 所有請求及退避等待共用 45 秒；最多三次呼叫、一次格式修復。
         async with asyncio.timeout(45):
             async with httpx.AsyncClient(timeout=httpx.Timeout(40, connect=10)) as client:
-                for attempt in range(2):
+                repair = False
+                for attempt in range(3):
                     try:
-                        return await generate_interpretation(client, key, model, data, reading, repair=bool(attempt))
+                        return await generate_interpretation(client, key, model, data, reading, repair=repair)
                     except ApiError as error:
-                        if attempt or error.code not in ('INVALID_MODEL_OUTPUT', 'AI_INCOMPLETE'):
+                        if attempt == 2:
+                            raise
+                        if error.code == 'AI_UNAVAILABLE':
+                            # 隨機偏移避免多名使用者同時重新呼叫上游。
+                            await asyncio.sleep((2, 5)[attempt] + random.uniform(0, 1))
+                        elif error.code in ('INVALID_MODEL_OUTPUT', 'AI_INCOMPLETE') and not repair:
+                            repair = True
+                        else:
                             raise
     except (httpx.HTTPError, TimeoutError) as error:
         logger.warning('Gemini transport failure model=%s exception=%s', model, type(error).__name__)
