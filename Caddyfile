@@ -1,0 +1,15 @@
+:80 {
+    encode zstd gzip
+    header X-Content-Type-Options nosniff
+    header Referrer-Policy strict-origin-when-cross-origin
+
+    @backend path /api/* /cards/* /docs /docs/* /openapi.json /redoc
+    handle @backend {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        root * /srv/frontend
+        file_server
+    }
+}

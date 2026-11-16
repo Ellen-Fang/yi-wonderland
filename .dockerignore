@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+!.env.example
+.tools
+.venv
+storage
+__pycache__
+**/__pycache__
+.pytest_cache
+*.sqlite*
+*.db*
+*.log
+node_modules
+src
+test
+legacy

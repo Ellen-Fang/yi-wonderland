@@ -1,0 +1,25 @@
+# 私密設定：保留可分享的範例
+.env
+.env.*
+!.env.example
+# 使用者問題、抽牌、解讀與資料庫暫存
+storage/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+# 套件、紀錄、下載暫存
+node_modules/
+coverage/
+*.log
+*.part
+.DS_Store
+Thumbs.db
+.tools/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+legacy/

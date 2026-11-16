@@ -1,0 +1,91 @@
+[
+  {
+    "id": "past-present-future",
+    "name": "過去／現在／未來",
+    "description": "探索事情的脈絡與可能發展，未來不是確定預言。",
+    "positions": [
+      {
+        "id": "past",
+        "label": "過去",
+        "meaning": "影響當前問題的背景與經驗"
+      },
+      {
+        "id": "present",
+        "label": "現在",
+        "meaning": "當前狀況與需要留意的重點"
+      },
+      {
+        "id": "future",
+        "label": "未來",
+        "meaning": "若沿目前方向發展，可能出現的走向"
+      }
+    ]
+  },
+  {
+    "id": "situation-obstacle-advice",
+    "name": "現況／阻礙／建議",
+    "description": "適合釐清困境，以及思考下一步。",
+    "positions": [
+      {
+        "id": "situation",
+        "label": "現況",
+        "meaning": "問題目前的狀態"
+      },
+      {
+        "id": "obstacle",
+        "label": "阻礙",
+        "meaning": "可能需要面對的阻力或盲點"
+      },
+      {
+        "id": "advice",
+        "label": "建議",
+        "meaning": "使用者可以考慮的具體行動"
+      }
+    ]
+  },
+  {
+    "id": "situation-action-outcome",
+    "name": "現況／行動／可能結果",
+    "description": "探索可採取的行動及其可能影響。",
+    "positions": [
+      {
+        "id": "situation",
+        "label": "現況",
+        "meaning": "問題目前的狀態"
+      },
+      {
+        "id": "action",
+        "label": "行動",
+        "meaning": "值得考慮採取的行動"
+      },
+      {
+        "id": "outcome",
+        "label": "可能結果",
+        "meaning": "採取上述行動後的可能發展，並非保證"
+      }
+    ]
+  },
+  {
+    "id": "choice-comparison",
+    "name": "選項 A／選項 B／建議",
+    "description": "比較兩個選擇；請另外寫出 A、B 分別是什麼。",
+    "requiresOptions": true,
+    "positions": [
+      {
+        "id": "option-a",
+        "label": "選項 A",
+        "meaning": "第一個選項帶來的可能經驗與注意事項"
+      },
+      {
+        "id": "option-b",
+        "label": "選項 B",
+        "meaning": "第二個選項帶來的可能經驗與注意事項"
+      },
+      {
+        "id": "advice",
+        "label": "建議",
+        "meaning": "比較兩者時值得留意的價值與取捨"
+      }
+    ]
+  }
+]
