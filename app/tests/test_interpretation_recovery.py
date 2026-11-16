@@ -64,8 +64,8 @@ def test_malformed_answer_retries_once_with_same_question_and_cards(client, monk
     assert '上一回合' in captured[1]['systemInstruction']['parts'][0]['text']
 
 
-@pytest.mark.parametrize('http_status,expected_calls,error_code', [(200, 2, 'INVALID_MODEL_OUTPUT'), (429, 1, 'AI_QUOTA_EXCEEDED'), (403, 1, 'AI_AUTH_ERROR')])
-def test_retry_is_bounded_and_quota_or_auth_is_not_retried(client, monkeypatch, http_status, expected_calls, error_code):
+@pytest.mark.parametrize('http_status,expected_calls,error_code', [(200, 2, 'INVALID_MODEL_OUTPUT'), (429, 1, 'AI_QUOTA_EXCEEDED'), (403, 1, 'AI_AUTH_ERROR'), (503, 1, 'AI_UNAVAILABLE'), (400, 1, 'AI_CONFIG_ERROR')])
+def test_retry_is_bounded_and_quota_or_auth_is_not_retried(client, monkeypatch, caplog, http_status, expected_calls, error_code):
     reading, headers = create(client)
     drawn = draw_three(client, reading, headers)
     monkeypatch.setenv('GEMINI_API_KEY', 'test-key')
@@ -77,9 +77,15 @@ def test_retry_is_bounded_and_quota_or_auth_is_not_retried(client, monkeypatch, 
         async def __aexit__(self, *args): pass
         async def post(self, url, **kwargs):
             calls.append(1)
-            return httpx.Response(http_status, json=completed({}))
+            payload = completed({}) if http_status == 200 else {'error': {
+                'status': 'UNAVAILABLE', 'message': f'test-key {drawn["question"]}'}}
+            return httpx.Response(http_status, json=payload)
     with patch('app.services.interpreter.httpx.AsyncClient', FakeClient):
         with pytest.raises(ApiError) as exc:
             asyncio.run(interpret_reading(drawn))
     assert exc.value.code == error_code
     assert len(calls) == expected_calls
+    assert 'test-key' not in caplog.text
+    assert drawn['question'] not in caplog.text
+    if http_status != 200:
+        assert f'http_status={http_status}' in caplog.text

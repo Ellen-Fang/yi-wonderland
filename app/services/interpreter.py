@@ -3,6 +3,7 @@ import json
 import os
 import re
 import asyncio
+import logging
 import httpx
 from pydantic import ValidationError
 from app.config import ROOT
@@ -10,6 +11,7 @@ from app.errors import ApiError
 from app.schemas.reading import Interpretation
 
 PROMPT = (ROOT / 'app/prompts/tarot.txt').read_text(encoding='utf-8')
+logger = logging.getLogger('uvicorn.error')
 
 
 def validate_interpretation(value: dict, reading: dict) -> dict:
@@ -42,6 +44,7 @@ async def interpret_reading(reading: dict) -> dict:
                         if attempt or error.code not in ('INVALID_MODEL_OUTPUT', 'AI_INCOMPLETE'):
                             raise
     except (httpx.HTTPError, TimeoutError) as error:
+        logger.warning('Gemini transport failure model=%s exception=%s', model, type(error).__name__)
         raise ApiError(502, 'AI_UNAVAILABLE', '解讀服務連線失敗或逾時，請稍後重試。') from error
 
 
@@ -62,10 +65,24 @@ async def generate_interpretation(client, key, model, data, reading, repair=Fals
         },
     )
     if not response.is_success:
+        # 只記錄 HTTP 狀態、模型與經白名單限制的錯誤代碼，絕不記錄金鑰、問題或完整回應。
+        provider_status = 'UNKNOWN'
+        try:
+            candidate_status = response.json().get('error', {}).get('status', '')
+            if isinstance(candidate_status, str) and re.fullmatch(r'[A-Z_]{1,60}', candidate_status):
+                provider_status = candidate_status
+        except (ValueError, AttributeError, TypeError):
+            pass
+        logger.warning('Gemini request failed http_status=%s provider_status=%s model=%s',
+                       response.status_code, provider_status, model)
         if response.status_code in (401, 403):
             raise ApiError(503, 'AI_AUTH_ERROR', 'Gemini 金鑰無效或沒有模型存取權限，請檢查後端設定。')
         if response.status_code == 429:
             raise ApiError(503, 'AI_QUOTA_EXCEEDED', 'Gemini 額度不足或請求過於頻繁，請稍後再試或確認 API 額度。')
+        if response.status_code in (500, 502, 503, 504):
+            raise ApiError(502, 'AI_UNAVAILABLE', '解讀服務目前忙碌或暫時故障，請稍後再試。')
+        if response.status_code in (400, 404):
+            raise ApiError(503, 'AI_CONFIG_ERROR', '解讀服務設定需要調整，請聯絡網站管理者。')
         raise ApiError(502, 'AI_UNAVAILABLE', '解讀服務暫時無法使用，請檢查後端模型設定或稍後重試。')
     try:
         body = response.json()

@@ -192,7 +192,7 @@ def test_provider_contract_and_errors(client, monkeypatch):
             with pytest.raises(ApiError) as exc:
                 asyncio.run(interpret_reading(drawn))
             assert exc.value.code == code
-        for http_status, code in [(403, 'AI_AUTH_ERROR'), (429, 'AI_QUOTA_EXCEEDED'), (500, 'AI_UNAVAILABLE')]:
+        for http_status, code in [(403, 'AI_AUTH_ERROR'), (429, 'AI_QUOTA_EXCEEDED'), (500, 'AI_UNAVAILABLE'), (503, 'AI_UNAVAILABLE'), (400, 'AI_CONFIG_ERROR'), (404, 'AI_CONFIG_ERROR')]:
             status = http_status
             with pytest.raises(ApiError) as exc:
                 asyncio.run(interpret_reading(drawn))
