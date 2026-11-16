@@ -133,4 +133,48 @@ def test_retry_wait_shares_total_timeout(client, monkeypatch):
         with pytest.raises(ApiError) as exc:
             asyncio.run(interpret_reading(drawn))
     assert exc.value.code == 'AI_UNAVAILABLE'
-    timeout.assert_called_once_with(45)
+    assert timeout.call_args_list[0].args == (45,)
+
+
+@pytest.mark.parametrize('failure', ['503', 'timeout', 'connection'])
+def test_fallback_after_one_retry_preserves_reading(client, monkeypatch, failure):
+    reading, headers = create(client)
+    drawn = draw_three(client, reading, headers)
+    monkeypatch.setenv('GEMINI_API_KEY', 'test-key')
+    monkeypatch.setenv('GEMINI_MODEL', 'gemini-3.5-flash-lite')
+    monkeypatch.setenv('GEMINI_FALLBACK_MODEL', 'gemini-3.1-flash-lite')
+    requests = []
+    class FakeClient:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def post(self, url, **kwargs):
+            requests.append((url, kwargs))
+            if len(requests) < 3:
+                if failure == 'timeout':
+                    raise httpx.ReadTimeout('test-key')
+                if failure == 'connection':
+                    raise httpx.ConnectError('test-key')
+                return httpx.Response(503, json={'error': {'status': 'UNAVAILABLE'}})
+            return httpx.Response(200, json=completed(short_result(drawn)))
+    with patch('app.services.interpreter.httpx.AsyncClient', FakeClient), patch(
+        'app.services.interpreter.asyncio.sleep', new_callable=AsyncMock
+    ):
+        assert asyncio.run(interpret_reading(drawn)) == short_result(drawn)
+    assert len(requests) == 3
+    assert all('/gemini-3.5-flash-lite:' in request[0] for request in requests[:2])
+    assert '/gemini-3.1-flash-lite:' in requests[2][0]
+    assert all(request[1] == requests[0][1] for request in requests)
+
+
+@pytest.mark.parametrize('http_status', [400, 403, 429])
+def test_fallback_does_not_bypass_auth_quota_or_config_errors(client, monkeypatch, http_status):
+    reading, headers = create(client)
+    drawn = draw_three(client, reading, headers)
+    monkeypatch.setenv('GEMINI_API_KEY', 'test-key')
+    monkeypatch.setenv('GEMINI_FALLBACK_MODEL', 'gemini-3.1-flash-lite')
+    post = AsyncMock(return_value=httpx.Response(http_status, json={'error': {}}))
+    with patch('app.services.interpreter.httpx.AsyncClient.post', post):
+        with pytest.raises(ApiError):
+            asyncio.run(interpret_reading(drawn))
+    assert post.await_count == 1

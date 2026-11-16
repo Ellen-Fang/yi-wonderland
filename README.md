@@ -71,6 +71,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 | --- | --- | --- |
 | `GEMINI_API_KEY` | 空白 | Gemini API 金鑰，只放後端 |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | 解讀使用的模型 |
+| `GEMINI_FALLBACK_MODEL` | 空白（停用） | 暫時故障重試一次後，第三次呼叫改用此模型；沿用原金鑰與牌組 |
 | `HOST` | `127.0.0.1` | Windows 啟動腳本的監聽位址 |
 | `PORT` | `3000` | 啟動腳本的服務埠／Docker 後端主機埠 |
 | `WEB_PORT` | `8080` | Docker Caddy 的主機埠 |
@@ -78,6 +79,18 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 | `DATABASE_URL` | 未設定 | 本機預設使用 `storage/readings.sqlite`；Compose 會指定容器內路徑 |
 
 ## Docker 啟動（Linux／Windows）
+
+### 選用免費輕量備援
+
+先在 [Google AI Studio](https://aistudio.google.com/api-keys) 確認金鑰所屬專案為 **Free tier**，並確認 `gemini-3.1-flash-lite` 在該專案具有免費額度，再於既有 `.env` 新增：
+
+```dotenv
+GEMINI_FALLBACK_MODEL=gemini-3.1-flash-lite
+```
+
+主模型出現暫時故障或連線逾時，短暫等待重試一次後仍失敗，第三次呼叫改用備援。所有請求與等待共用 45 秒，啟用備援時前兩次各限制 13 秒，替備援保留時間。格式修復也計入最多三次呼叫的預算，因此不保證每次都能使用備援；金鑰、設定、額度錯誤及安全拒絕不觸發備援。成功結果照常驗證原牌與牌位並保存。
+
+不設定或留空可停用備援。程式無法從金鑰判斷帳戶計費層級；若專案已啟用付費，使用同一模型也可能產生費用。此功能不會建立金鑰、開通付費或使用其他供應商。[官方價格](https://ai.google.dev/gemini-api/docs/pricing)列有此模型的免費額度，但帳戶權限、限制與模型供應狀態仍需在 AI Studio 確認。同專案不同金鑰共用限制，備援也不能保證 Google 整體故障時可用。
 
 需要 Docker Engine 與 Compose plugin；Windows 可使用 Docker Desktop 的 Linux containers。
 

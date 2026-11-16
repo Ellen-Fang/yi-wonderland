@@ -100,6 +100,10 @@
 
 ### 解讀
 
+可選的 `GEMINI_FALLBACK_MODEL` 使用同一把金鑰；建議先在 AI Studio 確認專案為 Free tier、備援模型有免費額度，再設定 `gemini-3.1-flash-lite`。程式不會檢查或變更 Google 帳戶計費層級，付費專案仍可能計費。未設定、留空或與主模型相同時不使用備援。
+
+主模型暫時無法使用（包括連線失敗／逾時），延遲重試一次後仍失敗，第三次呼叫改用備援；所有呼叫、格式修復與等待合計最多三次且共用 45 秒。啟用備援時前兩次各以 13 秒為限，替備援保留時間。金鑰、設定、額度錯誤及安全拒絕不觸發切換。備援仍使用原問題與牌組並驗證結果；日誌僅記錄切換模型，不記錄問題或金鑰。
+
 三張抽完後呼叫解讀 API。後端從資料庫取得原問題、選項、牌陣與實際抽牌，不接受前端指定牌面。使用 Gemini generateContent API 的 [Structured Outputs](https://ai.google.dev/gemini-api/docs/structured-output)，並另外驗證三張牌 ID、牌位及順序。
 
 成功回傳完整占卜，狀態為 `completed`，`interpretation` 結構如下：

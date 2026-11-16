@@ -29,10 +29,12 @@ def validate_interpretation(value: dict, reading: dict) -> dict:
 async def interpret_reading(reading: dict) -> dict:
     key = os.getenv('GEMINI_API_KEY', '').strip()
     model = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash-lite').strip()
+    fallback = os.getenv('GEMINI_FALLBACK_MODEL', '').strip()
     if not key or not model:
         raise ApiError(503, 'AI_NOT_CONFIGURED', '請先在後端設定 GEMINI_API_KEY 與 GEMINI_MODEL。')
-    if not re.fullmatch(r'[A-Za-z0-9._-]+', model):
+    if any(not re.fullmatch(r'[A-Za-z0-9._-]+', item) for item in (model, fallback) if item):
         raise ApiError(503, 'AI_NOT_CONFIGURED', 'GEMINI_MODEL 必須是有效的模型名稱。')
+    fallback = fallback if fallback != model else ''
     data = {key: reading[key] for key in ('question', 'options', 'spread', 'cards')}
     try:
         # 所有請求及退避等待共用 45 秒；最多三次呼叫、一次格式修復。
@@ -41,11 +43,20 @@ async def interpret_reading(reading: dict) -> dict:
                 repair = False
                 for attempt in range(3):
                     try:
-                        return await generate_interpretation(client, key, model, data, reading, repair=repair)
+                        try:
+                            # 啟用備援時替後續嘗試預留時間，避免首個模型用完全部等待額度。
+                            async with asyncio.timeout(13 if fallback else 40):
+                                return await generate_interpretation(client, key, model, data, reading, repair=repair)
+                        except (httpx.HTTPError, TimeoutError) as error:
+                            logger.warning('Gemini transport failure model=%s exception=%s', model, type(error).__name__)
+                            raise ApiError(502, 'AI_UNAVAILABLE', '解讀服務連線失敗或逾時，請稍後重試。') from error
                     except ApiError as error:
                         if attempt == 2:
                             raise
                         if error.code == 'AI_UNAVAILABLE':
+                            if fallback and attempt >= 1:
+                                logger.warning('Gemini switching fallback model=%s', fallback)
+                                model, fallback = fallback, ''
                             # 隨機偏移避免多名使用者同時重新呼叫上游。
                             await asyncio.sleep((2, 5)[attempt] + random.uniform(0, 1))
                         elif error.code in ('INVALID_MODEL_OUTPUT', 'AI_INCOMPLETE') and not repair:
