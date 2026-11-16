@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import asyncio
 import httpx
 from pydantic import ValidationError
 from app.config import ROOT
@@ -18,30 +19,48 @@ def validate_interpretation(value: dict, reading: dict) -> dict:
             if card.cardId != drawn['cardId'] or card.positionId != drawn['position']['id']:
                 raise ValueError('牌面或牌位不符')
     except (ValidationError, ValueError, TypeError) as error:
-        raise ApiError(502, 'INVALID_MODEL_OUTPUT', '解讀格式不正確或內容過短，請稍後重試。') from error
+        raise ApiError(502, 'INVALID_MODEL_OUTPUT', '解讀內容尚未完整產生，請稍後再試。') from error
     return result.model_dump()
 
 
 async def interpret_reading(reading: dict) -> dict:
     key = os.getenv('GEMINI_API_KEY', '').strip()
-    model = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash').strip()
+    model = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash-lite').strip()
     if not key or not model:
         raise ApiError(503, 'AI_NOT_CONFIGURED', '請先在後端設定 GEMINI_API_KEY 與 GEMINI_MODEL。')
     if not re.fullmatch(r'[A-Za-z0-9._-]+', model):
         raise ApiError(503, 'AI_NOT_CONFIGURED', 'GEMINI_MODEL 必須是有效的模型名稱。')
     data = {key: reading[key] for key in ('question', 'options', 'spread', 'cards')}
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10)) as client:
-            response = await client.post(
-                f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
-                headers={'x-goog-api-key': key}, json={
-                    'systemInstruction': {'parts': [{'text': PROMPT}]},
-                    'contents': [{'role': 'user', 'parts': [{'text': json.dumps(data, ensure_ascii=False)}]}],
-                    'generationConfig': {'responseMimeType': 'application/json',
-                                         'thinkingConfig': {'thinkingLevel': 'LOW'},
-                                         'responseJsonSchema': Interpretation.model_json_schema()}})
-    except httpx.HTTPError as error:
+        # 自動修復最多一次，總等待時間仍以 45 秒為限，避免雙倍等待。
+        async with asyncio.timeout(45):
+            async with httpx.AsyncClient(timeout=httpx.Timeout(40, connect=10)) as client:
+                for attempt in range(2):
+                    try:
+                        return await generate_interpretation(client, key, model, data, reading, repair=bool(attempt))
+                    except ApiError as error:
+                        if attempt or error.code not in ('INVALID_MODEL_OUTPUT', 'AI_INCOMPLETE'):
+                            raise
+    except (httpx.HTTPError, TimeoutError) as error:
         raise ApiError(502, 'AI_UNAVAILABLE', '解讀服務連線失敗或逾時，請稍後重試。') from error
+
+
+async def generate_interpretation(client, key, model, data, reading, repair=False):
+    instructions = PROMPT
+    if repair:
+        instructions += '\n上一回合的回覆未通過格式檢查。請重新依原問題與原牌組輸出完整 JSON：三張牌依序保留原 cardId、positionId，各欄位不可空白。務必包含整體判讀、三張逐牌分析、具體建議與反思，不輸出 Markdown 或額外欄位。'
+    response = await client.post(
+        f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+        headers={'x-goog-api-key': key}, json={
+            'systemInstruction': {'parts': [{'text': instructions}]},
+            'contents': [{'role': 'user', 'parts': [{'text': json.dumps(data, ensure_ascii=False)}]}],
+            'generationConfig': {
+                'responseMimeType': 'application/json',
+                'thinkingConfig': {'thinkingLevel': 'LOW'},
+                'responseJsonSchema': Interpretation.model_json_schema(),
+            },
+        },
+    )
     if not response.is_success:
         if response.status_code in (401, 403):
             raise ApiError(503, 'AI_AUTH_ERROR', 'Gemini 金鑰無效或沒有模型存取權限，請檢查後端設定。')

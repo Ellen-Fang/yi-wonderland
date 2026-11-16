@@ -71,16 +71,15 @@ class CardInterpretation(StrictModel):
 class Interpretation(StrictModel):
     summary: str
     cards: list[CardInterpretation] = Field(min_length=3, max_length=3)
-    advice: list[str] = Field(min_length=3, max_length=5)
+    advice: list[str] = Field(min_length=1, max_length=5)
     reflection: str
 
     @model_validator(mode='after')
-    def sufficient_depth(self):
-        def size(text):
-            return len(''.join(text.split()))
-        if size(self.summary) < 80 or any(size(card.interpretation) < 120 for card in self.cards):
-            raise ValueError('解讀過短')
-        if not self.reflection.strip() or any(not item.strip() for item in self.advice):
+    def content_is_present(self):
+        # 深度由 prompt 引導；有效回覆不因未達指定字數而失敗。
+        texts = [self.summary, self.reflection, *self.advice,
+                 *(card.interpretation for card in self.cards)]
+        if any(not item.strip() for item in texts):
             raise ValueError('內容不可空白')
         return self
 

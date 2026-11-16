@@ -131,7 +131,7 @@ def test_invalid_output_not_cached(tmp_path):
     async def interpret(reading):
         nonlocal calls
         calls += 1
-        return {**result_for(reading), 'summary': '太短'} if calls == 1 else result_for(reading)
+        return {**result_for(reading), 'summary': '   '} if calls == 1 else result_for(reading)
     with TestClient(create_app(f'sqlite:///{tmp_path / "retry.sqlite"}', interpret)) as client:
         reading, headers = create(client)
         drawn = draw_three(client, reading, headers)
