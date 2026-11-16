@@ -1,5 +1,8 @@
 const $ = (selector) => document.querySelector(selector);
 const sessionKey = 'sunlit-tarot-session';
+const draftKey = 'yi-wonderland-draft';
+let setupPage = 'question';
+let routing = false;
 let spreads = [];
 let reading = null;
 let token = '';
@@ -30,12 +33,90 @@ function step(index) {
   document.querySelectorAll('.steps li').forEach((element, i) => {
     element.classList.toggle('active', i === index);
     element.classList.toggle('done', i < index);
+    if (i === index) element.setAttribute('aria-current', 'step');
+    else element.removeAttribute('aria-current');
   });
 }
-function showPanel(panel) {
-  ['setup', 'draw-panel', 'loading-panel', 'result-panel'].forEach(id => { $(`#${id}`).hidden = id !== panel; });
+function activateScreen(screen, focus = true) {
+  const changed = document.body.dataset.screen !== screen;
+  document.body.dataset.screen = screen;
+  $('#experience').hidden = screen === 'home';
+  const hash = screen === 'home' ? '' : `#${screen}`;
+  if (location.hash !== hash) history[routing ? 'replaceState' : 'pushState']({ screen }, '', `${location.pathname}${hash}`);
+  if (changed) {
+    releaseMixing();
+    if (focus) window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  return changed;
 }
-function scrollToExperience() { $('#experience').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function showPanel(panel, screen = panel === 'setup' ? setupPage : panel === 'result-panel' ? 'result' : panel === 'loading-panel' ? 'loading' : shuffled ? 'draw' : 'shuffle') {
+  ['setup', 'draw-panel', 'loading-panel', 'result-panel'].forEach(id => { $(`#${id}`).hidden = id !== panel; });
+  const changed = activateScreen(screen);
+  if (changed) {
+    const visiblePanel = panel === 'setup' ? $(`#${setupPage}-step`) : $(`#${panel}`);
+    visiblePanel.classList.remove('journey-enter');
+    requestAnimationFrame(() => {
+      visiblePanel.classList.add('journey-enter');
+      const heading = visiblePanel.querySelector('h3');
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    });
+  }
+}
+function scrollToExperience() { window.scrollTo({ top: 0, behavior: 'instant' }); }
+function showSetup(page) {
+  setupPage = page;
+  const locked = Boolean(reading?.cards.length);
+  $('#question').disabled = locked;
+  document.querySelectorAll('input[name="spread"], #option-a, #option-b').forEach(input => { input.disabled = locked; });
+  $('#locked-context').hidden = !locked;
+  $('#question-step').hidden = page !== 'question';
+  $('#spread-step').hidden = page !== 'spread';
+  $('#spread-question-preview').textContent = $('#question').value.trim();
+  showPanel('setup', page); step(page === 'question' ? 0 : 1);
+  $('#start-button').firstChild.textContent = reading ? '回到這次的牌組 ' : '準備好了，去洗牌 ';
+  saveDraft();
+}
+function showHome() {
+  if (busy) return;
+  notice(); activateScreen('home');
+}
+function saveDraft() {
+  try { sessionStorage.setItem(draftKey, JSON.stringify({ question: $('#question').value, spreadId: document.querySelector('input[name="spread"]:checked')?.value, a: $('#option-a').value, b: $('#option-b').value })); } catch { /* 不影響流程。 */ }
+}
+function applyDraft(draft) {
+  if (!draft) return;
+  if (typeof draft.question === 'string') $('#question').value = draft.question;
+  if (typeof draft.a === 'string') $('#option-a').value = draft.a;
+  if (typeof draft.b === 'string') $('#option-b').value = draft.b;
+  document.querySelectorAll('input[name="spread"]').forEach(input => { input.checked = input.value === draft.spreadId; });
+  if (!document.querySelector('input[name="spread"]:checked')) {
+    const fallback = document.querySelectorAll('input[name="spread"]')[1];
+    if (fallback) fallback.checked = true;
+  }
+  updateComparison(); countQuestion();
+}
+function updateComparison() {
+  const selected = spreads.find(spread => spread.id === document.querySelector('input[name="spread"]:checked')?.value);
+  const compare = Boolean(selected?.requiresOptions);
+  $('#comparison-options').hidden = !compare;
+  $('#option-a').required = compare; $('#option-b').required = compare;
+}
+function routeLocation() {
+  if (busy) { history.replaceState({}, '', `#${document.body.dataset.screen}`); return; }
+  routing = true;
+  const target = location.hash.slice(1);
+  notice();
+  if (!target || target === 'home') showHome();
+  else if (target === 'question') showSetup('question');
+  else if (target === 'spread' && $('#question').value.trim()) showSetup('spread');
+  else if (reading && target === 'result' && reading.interpretation) renderResult();
+  else if (reading && ['shuffle', 'draw', 'loading', 'result', 'experience'].includes(target)) {
+    if (target === 'shuffle') renderDraw('shuffle');
+    else if (reading.interpretation && target !== 'draw') renderResult();
+    else renderDraw();
+  } else showSetup('question');
+  routing = false;
+}
 async function api(path, { method = 'GET', body } = {}) {
   let response;
   try {
@@ -60,7 +141,7 @@ function saveSession() {
   try { sessionStorage.setItem(sessionKey, JSON.stringify({ id: reading.id, token, shuffled })); } catch { /* 儲存不可用時仍可占卜。 */ }
 }
 function clearSession() {
-  try { sessionStorage.removeItem(sessionKey); } catch { /* 無需阻擋操作。 */ }
+  try { sessionStorage.removeItem(sessionKey); sessionStorage.removeItem(draftKey); } catch { /* 無需阻擋操作。 */ }
 }
 function countQuestion() {
   const length = Array.from($('#question').value.trim()).length;
@@ -84,10 +165,7 @@ function renderSpreads() {
     const dot = node('span', 'radio-dot'); dot.setAttribute('aria-hidden', 'true');
     content.append(copy, dot); label.append(input, content); container.append(label);
     input.addEventListener('change', () => {
-      const compare = Boolean(spread.requiresOptions);
-      $('#comparison-options').hidden = !compare;
-      $('#option-a').required = compare; $('#option-b').required = compare;
-      step(1);
+      updateComparison(); saveDraft();
     });
   });
   $('#start-button').disabled = false;
@@ -100,16 +178,27 @@ function imageFor(card) {
   image.loading = 'lazy';
   return image;
 }
-function renderDraw() {
-  showPanel('draw-panel'); step(2);
+function renderDraw(view = shuffled ? 'draw' : 'shuffle') {
+  if (view === 'draw' && !shuffled) view = 'shuffle';
+  const drawing = view === 'draw';
+  showPanel('draw-panel', view); step(drawing ? 3 : 2);
   $('#draw-question').textContent = reading.question;
   const count = reading.cards.length;
-  $('#draw-title').textContent = count === 3 ? '三張牌，已經與你相遇。' : shuffled ? `現在，選出你的第${['一', '二', '三'][count]}張牌。` : '深呼吸，把心慢慢放輕。';
-  $('#draw-subtitle').textContent = count === 3 ? '看看它們的模樣，準備好就打開這次的指引。' : shuffled ? `這張牌將代表「${reading.spread.positions[count].label}」，跟著直覺點選一個位置。` : '想著你的問題，用手勢慢慢洗牌。準備好時，再開始選牌。';
-  $('#manual-shuffle').hidden = shuffled;
-  $('#selected-cards').hidden = !shuffled;
-  $('#card-selection').hidden = !shuffled || count === 3;
-  $('#interpret-button').hidden = count !== 3;
+  $('#draw-title').textContent = !drawing ? shuffled ? '這副牌，已為你準備好了。' : '深呼吸，把心慢慢放輕。' : count === 3 ? '三張牌，已經與你相遇。' : `現在，選出你的第${['一', '二', '三'][count]}張牌。`;
+  $('#draw-subtitle').textContent = !drawing ? shuffled ? '返回不會改變牌組，準備好就繼續這次的抽牌。' : '想著你的問題，用手勢慢慢洗牌。準備好時，再開始選牌。' : count === 3 ? '看看它們的模樣，準備好就打開這次的指引。' : `這張牌將代表「${reading.spread.positions[count].label}」，跟著直覺點選一個位置。`;
+  $('#manual-shuffle').hidden = drawing;
+  $('#selected-cards').hidden = !drawing;
+  $('#card-selection').hidden = !drawing || count === 3;
+  $('#interpret-button').hidden = !drawing || count !== 3;
+  $('#continue-draw').hidden = !shuffled;
+  $('#continue-draw').disabled = busy;
+  $('#shuffle-button').hidden = shuffled;
+  $('#shuffle-scene').setAttribute('aria-disabled', String(shuffled));
+  $('#shuffle-scene').tabIndex = shuffled ? -1 : 0;
+  $('#shuffle-help').textContent = shuffled ? '這副牌已完成洗牌。可以返回查看牌陣，或繼續選牌；原本的牌序與正逆位都會保留。' : '用手指，或按住觸控板／滑鼠，在牌桌上來回畫圈，把牌慢慢混開。也可以聚焦牌桌後，使用方向鍵洗牌。';
+  if (shuffled) $('#shuffle-status').textContent = '牌組已固定，返回查看不會改變抽牌結果。';
+  $('#draw-back').textContent = drawing ? '← 回到洗牌桌' : '← 回到牌陣';
+  $('#draw-back').disabled = busy;
   const slots = $('#selected-cards'); slots.replaceChildren();
   reading.spread.positions.forEach((position, i) => {
     const slot = node('div', 'card-slot');
@@ -152,7 +241,7 @@ async function draw(position) {
   }
 }
 function renderResult() {
-  showPanel('result-panel'); step(3);
+  showPanel('result-panel'); step(4);
   const result = reading.interpretation;
   $('#result-question').textContent = reading.question;
   $('#result-summary').textContent = result.summary;
@@ -169,7 +258,8 @@ function renderResult() {
 }
 async function interpret() {
   if (busy) return;
-  busy = true; notice(); showPanel('loading-panel'); step(3); scrollToExperience();
+  if (reading.interpretation) { renderResult(); return; }
+  busy = true; notice(); showPanel('loading-panel'); step(4); scrollToExperience();
   const started = Date.now();
   $('#loading-time').textContent = '已等待 0 秒';
   timer = setInterval(() => { const seconds = Math.floor((Date.now() - started) / 1000); $('#loading-time').textContent = seconds < 15 ? `已等待 ${seconds} 秒` : `已等待 ${seconds} 秒 · 解讀仍在準備中`; }, 1000);
@@ -181,29 +271,63 @@ async function interpret() {
     try { reading = await api(`/readings/${reading.id}`); } catch { /* 下次可重試。 */ }
     if (reading.interpretation) renderResult();
     else { renderDraw(); $('#interpret-button').firstChild.textContent = '再試一次，打開指引 '; notice(`${error.message} 已保留原本三張牌，不需要重新抽牌。`, true); }
-  } finally { busy = false; clearInterval(timer); $('#interpret-button').disabled = false; $('#restart-button').disabled = false; }
+  } finally { busy = false; clearInterval(timer); $('#interpret-button').disabled = false; $('#restart-button').disabled = false; $('#draw-back').disabled = false; }
 }
 function restart() {
   if (busy) return;
-  reading = null; token = ''; shuffled = false; clearSession(); notice(); showPanel('setup'); step(0); scrollToExperience();
-  $('#question').value = ''; countQuestion();
+  reading = null; token = ''; shuffled = false; clearSession(); notice();
+  $('#question').value = ''; $('#option-a').value = ''; $('#option-b').value = ''; countQuestion();
+  showSetup('question');
   resetMixing();
 }
-$('#question').addEventListener('input', countQuestion);
-$('#question').addEventListener('focus', () => step(0));
+$('#question').addEventListener('input', () => { countQuestion(); saveDraft(); });
+for (const id of ['option-a', 'option-b']) $(`#${id}`).addEventListener('input', saveDraft);
+$('#question-next').addEventListener('click', () => {
+  if (busy) return;
+  countQuestion();
+  if ($('#question').reportValidity()) { notice(); showSetup('spread'); }
+});
+$('#question-back').addEventListener('click', showHome);
+$('#spread-back').addEventListener('click', () => { if (!busy) { notice(); showSetup('question'); } });
+$('#continue-draw').addEventListener('click', () => { if (!busy) renderDraw('draw'); });
+$('#draw-back').addEventListener('click', () => {
+  if (busy) return;
+  notice();
+  if (document.body.dataset.screen === 'draw') renderDraw('shuffle');
+  else showSetup('spread');
+});
+$('#result-back').addEventListener('click', () => { if (!busy) renderDraw('draw'); });
+document.querySelectorAll('a[href="#experience"]').forEach(link => link.addEventListener('click', event => {
+  event.preventDefault(); if (busy) return;
+  notice();
+  if (reading?.interpretation) renderResult();
+  else if (reading) renderDraw();
+  else showSetup('question');
+}));
+document.querySelectorAll('a[href="/"]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); showHome(); }));
+window.addEventListener('popstate', routeLocation);
+window.addEventListener('hashchange', routeLocation);
 $('#reading-form').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
+  if (setupPage !== 'spread') { $('#question-next').click(); return; }
   countQuestion(); if (!$('#reading-form').reportValidity()) return;
   busy = true; notice(); $('#start-button').disabled = true; $('#start-button').firstChild.textContent = '正在準備你的牌組 ';
   try {
     const spreadId = document.querySelector('input[name="spread"]:checked').value;
     const body = { question: $('#question').value.trim(), spreadId };
     if (spreads.find(spread => spread.id === spreadId)?.requiresOptions) body.options = { a: $('#option-a').value.trim(), b: $('#option-b').value.trim() };
-    token = ''; reading = await api('/readings', { method: 'POST', body }); token = reading.accessToken; shuffled = false;
+    const same = reading && reading.question === body.question && reading.spread.id === body.spreadId && JSON.stringify(reading.options ?? null) === JSON.stringify(body.options ?? null);
+    if (same) { if (reading.interpretation) renderResult(); else renderDraw(); return; }
+    if (reading?.cards.length) throw new Error('已開始抽牌，請保留原問題與牌陣，或重新開始一次占卜。');
+    const created = await api('/readings', { method: 'POST', body }); reading = created; token = created.accessToken; shuffled = false;
     resetMixing();
     saveSession(); renderDraw(); scrollToExperience();
   } catch (error) { notice(error.message, true); }
-  finally { busy = false; $('#start-button').disabled = false; $('#restart-button').disabled = false; $('#start-button').firstChild.textContent = '準備好了，去洗牌 '; }
+  finally {
+    busy = false; $('#start-button').disabled = false; $('#restart-button').disabled = false; $('#draw-back').disabled = false;
+    $('#start-button').firstChild.textContent = reading ? '回到這次的牌組 ' : '準備好了，去洗牌 ';
+    if (['draw', 'shuffle'].includes(document.body.dataset.screen)) renderDraw(document.body.dataset.screen);
+  }
 });
 $('#shuffle-button').addEventListener('click', async () => {
   if (busy || mixRatio < 1) return;
@@ -310,16 +434,19 @@ async function init() {
   try { spreads = (await api('/spreads')).spreads; renderSpreads(); }
   catch (error) { notice('牌陣暫時無法載入，請確認服務正常後重新整理頁面。', true); return; }
   let saved;
+  try { applyDraft(JSON.parse(sessionStorage.getItem(draftKey))); } catch { /* 忽略無效草稿。 */ }
   try { saved = JSON.parse(sessionStorage.getItem(sessionKey)); } catch { clearSession(); }
-  if (!saved?.id || !saved?.token) return;
+  if (!saved?.id || !saved?.token) { routeLocation(); return; }
   token = saved.token;
   try {
     reading = await api(`/readings/${saved.id}`);
+    applyDraft({ question: reading.question, spreadId: reading.spread.id, a: reading.options?.a ?? '', b: reading.options?.b ?? '' });
     shuffled = Boolean(saved.shuffled || reading.cards.length);
-    if (reading.interpretation) renderResult(); else { resetMixing(); renderDraw(); }
-    notice('歡迎回來，已替你保留這次的占卜進度。');
+    resetMixing(); routeLocation();
+    if (document.body.dataset.screen !== 'home') notice('歡迎回來，已替你保留這次的占卜進度。');
   } catch (error) {
     if (error.status === 404) { clearSession(); token = ''; }
+    routeLocation();
     notice('暫時無法恢復上次進度。你可以重新整理再試，或開始新的占卜。', true);
   }
 }

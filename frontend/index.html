@@ -9,9 +9,10 @@
   <link rel="icon" href="/assets/ferris-wheel.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/shuffle.css">
+  <link rel="stylesheet" href="/journey.css">
   <script src="/app.js" type="module"></script>
 </head>
-<body>
+<body data-screen="home">
   <header class="site-header">
     <a class="brand" href="/" aria-label="翊想樂園首頁"><img src="/assets/ferris-wheel.svg" alt="" width="40" height="40"><span>翊想樂園<small>YI WONDERLAND</small></span></a>
     <nav aria-label="主導覽"><a href="#experience">開始占卜 <span>↗</span></a><button id="about-button" class="plain-button">入園須知</button></nav>
@@ -38,23 +39,33 @@
 
     <div class="marquee" aria-hidden="true"><span>FOLLOW YOUR LITTLE WONDER</span> ✦ <span>今天，也有新的可能</span> ✦ <span>TAKE A BREATH, TAKE A CARD</span> ✦ <span>把答案留一點空白</span> ✦</div>
 
-    <section class="experience section-wrap" id="experience" aria-labelledby="experience-title">
+    <section class="experience section-wrap" id="experience" aria-labelledby="experience-title" hidden>
       <div class="section-heading"><div><div class="eyebrow muted">YOUR PERSONAL TAROT RIDE</div><h2 id="experience-title">下一站，心裡的答案<span>✦</span></h2></div><p>一個問題，三張牌，一次與自己的小小對話。</p></div>
-      <ol class="steps" aria-label="占卜步驟"><li class="active" data-step="0"><span>01</span> 寫下問題</li><li data-step="1"><span>02</span> 選擇牌陣</li><li data-step="2"><span>03</span> 洗牌與抽牌</li><li data-step="3"><span>04</span> 收下指引</li></ol>
+      <ol class="steps" aria-label="占卜步驟"><li class="active" data-step="0"><span>01</span> 寫下問題</li><li data-step="1"><span>02</span> 選擇牌陣</li><li data-step="2"><span>03</span> 手勢洗牌</li><li data-step="3"><span>04</span> 逐張抽牌</li><li data-step="4"><span>05</span> 收下指引</li></ol>
 
       <div id="status-message" class="notice" role="status" hidden></div>
       <div class="experience-grid" id="setup">
         <form id="reading-form" class="question-panel">
+          <p id="locked-context" class="field-help" hidden>這次已開始抽牌，問題與牌陣會保持原樣。若想換個問題，請選擇「重新開始」。</p>
+          <div id="question-step">
           <div class="panel-top"><span class="tag">FIRST, A LITTLE CHECK-IN</span><span class="line-star">✦</span></div>
           <h3>今天，有什麼放在心上？</h3>
           <p class="panel-description">工作、關係，或最近有點迷路的自己。<br>說說你的情況，讓解讀更靠近你。</p>
           <label for="question">我想問的是…</label>
           <div class="textarea-wrap"><textarea id="question" name="question" rows="4" placeholder="例如：我在目前的工作待了兩年，最近想轉換跑道，卻又害怕不穩定。我該如何準備下一步？" required aria-describedby="question-help question-count"></textarea><span id="question-count">0 / 100</span></div>
           <p id="question-help" class="field-help">寫得具體一點，比「我會成功嗎？」更容易獲得有用的指引。</p>
+          <p class="privacy-note">心事可以輕輕說，私密資訊請留給自己。問題中不必留下真實姓名、聯絡方式或其他個人資料。</p>
+          <div class="form-footer"><button type="button" class="text-button" id="question-back">← 回到入口</button><button type="button" class="primary-button" id="question-next">下一站，選擇牌陣 <span>→</span></button></div>
+          </div>
+          <div id="spread-step" hidden>
+          <div class="panel-top"><span class="tag">CHOOSE YOUR LITTLE ADVENTURE</span><span class="line-star">✦</span></div>
+          <h3>想從哪個角度，看看這件事？</h3>
+          <p class="panel-description">同樣的三張牌，可以走出不同的探索路線。<br>選一個最貼近你此刻心情的牌陣。</p>
+          <blockquote id="spread-question-preview" class="question-preview"></blockquote>
           <fieldset class="spread-fieldset"><legend><span>選一條探索的路線</span><small>三張牌，不同的觀看方式</small></legend><div id="spread-options" class="spread-options"><p class="field-help">正在準備牌陣…</p></div></fieldset>
           <div id="comparison-options" class="comparison-options" hidden><label for="option-a">選項 A<input id="option-a" maxlength="300" placeholder="例如：留在目前的公司"></label><label for="option-b">選項 B<input id="option-b" maxlength="300" placeholder="例如：轉職到新領域"></label></div>
-          <div class="form-footer"><span><span class="spark">✦</span> 每一次抽牌，都是新的相遇</span><button type="submit" class="primary-button" id="start-button" disabled>準備好了，去洗牌 <span>→</span></button></div>
-          <p class="privacy-note">心事可以輕輕說，私密資訊請留給自己。問題中不必留下真實姓名、聯絡方式或其他個人資料。</p>
+          <div class="form-footer"><button type="button" class="text-button" id="spread-back">← 回到問題</button><button type="submit" class="primary-button" id="start-button" disabled>準備好了，去洗牌 <span>→</span></button></div>
+          </div>
         </form>
 
         <aside class="side-ticket"><div class="ticket-pin"></div><span class="eyebrow">A NOTE BEFORE THE RIDE</span><h3>不是預言，<br>是換個角度<br>看見自己。</h3><img src="/assets/wonder-card.svg" alt="有太陽、星星與眼睛圖案的橘色塔羅牌" class="wonder-card"><p>牌不會替你做決定，<br>但也許能照亮，<br>你還沒留意的那一面。</p><div class="ticket-divider"></div><div class="ticket-bottom"><span>78 張偉特塔羅</span><span>∞ 種可能</span></div><div class="barcode" aria-hidden="true"></div><small class="ticket-serial">KEEP YOUR HEART OPEN · 000078</small></aside>
@@ -67,15 +78,16 @@
           <div id="shuffle-scene" class="shuffle-scene gesture-table" tabindex="0" role="group" aria-label="互動洗牌桌" aria-describedby="shuffle-help shuffle-status"><div class="table-orbit" aria-hidden="true"></div><div id="mixing-cards" aria-hidden="true"></div><span class="table-center" aria-hidden="true">✺</span><span class="gesture-hint" aria-hidden="true">按住 · 滑動 · 混合</span></div>
           <div class="shuffle-progress"><div class="shuffle-progress-track" aria-hidden="true"><span id="shuffle-progress-fill"></span></div><p id="shuffle-status" role="status">還沒開始，試著按住牌面滑動看看。</p></div>
           <button id="shuffle-button" class="primary-button" disabled>洗好了，開始選牌 <span>→</span></button>
+          <button id="continue-draw" class="primary-button" hidden>牌組已備妥，繼續選牌 <span>→</span></button>
         </div>
         <div id="selected-cards" class="selected-cards" aria-live="polite"></div>
         <div id="card-selection" hidden><div class="deck-label"><span>跟著直覺，選一張就好。</span><small>每個位置只抽一次 · 共 78 張</small></div><div id="deck-grid" class="deck-grid" aria-label="可抽取的 78 張牌"></div></div>
-        <div class="draw-actions"><button id="interpret-button" class="primary-button" hidden>打開這次的占卜指引 <span>↗</span></button><button id="restart-button" class="text-button">重新開始</button></div>
+        <div class="draw-actions"><button id="draw-back" class="text-button">← 回到牌陣</button><button id="interpret-button" class="primary-button" hidden>打開這次的占卜指引 <span>↗</span></button><button id="restart-button" class="text-button">重新開始</button></div>
       </section>
 
       <section id="loading-panel" class="loading-panel" hidden aria-live="polite"><div class="loading-sun">✺</div><span class="eyebrow">YOUR LITTLE WONDER IS ON ITS WAY</span><h3>正在把三張牌，串成你的故事。</h3><p>解讀會結合你的問題、牌位與正逆位。<br>趁這個空檔，給自己一個深呼吸。</p><span class="loading-time" id="loading-time">已等待 0 秒</span><p class="field-help">通常只需片刻，忙碌時可能稍久。無需重新抽牌。</p></section>
 
-      <section id="result-panel" class="result-panel" hidden aria-labelledby="result-title"><div class="result-title"><span class="tag">A LITTLE CLARITY, JUST FOR YOU</span><h3 id="result-title">你的占卜指引，到了。</h3><p id="result-question"></p></div><div id="result-summary" class="result-summary"></div><div id="result-cards" class="result-cards"></div><div class="result-bottom"><div class="advice-panel"><span class="eyebrow">SMALL STEPS, REAL POSSIBILITIES</span><h4>帶走一點點行動力</h4><ol id="result-advice"></ol></div><div class="reflection-panel"><span>✺</span><h4>留一個問題給自己</h4><p id="result-reflection"></p></div></div><div class="result-actions"><button id="new-reading-button" class="primary-button">再探索一個問題 <span>↗</span></button><button id="print-button" class="text-button">保存這份指引 ↓</button></div><p class="result-disclaimer">把這份指引當作遊園的紀念，帶走啟發，讓選擇留在自己手裡。重要決定仍請依實際情況與專業意見審慎考量。</p></section>
+      <section id="result-panel" class="result-panel" hidden aria-labelledby="result-title"><div class="result-title"><span class="tag">A LITTLE CLARITY, JUST FOR YOU</span><h3 id="result-title">你的占卜指引，到了。</h3><p id="result-question"></p></div><div id="result-summary" class="result-summary"></div><div id="result-cards" class="result-cards"></div><div class="result-bottom"><div class="advice-panel"><span class="eyebrow">SMALL STEPS, REAL POSSIBILITIES</span><h4>帶走一點點行動力</h4><ol id="result-advice"></ol></div><div class="reflection-panel"><span>✺</span><h4>留一個問題給自己</h4><p id="result-reflection"></p></div></div><div class="result-actions"><button id="new-reading-button" class="primary-button">再探索一個問題 <span>↗</span></button><button id="result-back" class="text-button">← 回看三張牌</button><button id="print-button" class="text-button">保存這份指引 ↓</button></div><p class="result-disclaimer">把這份指引當作遊園的紀念，帶走啟發，讓選擇留在自己手裡。重要決定仍請依實際情況與專業意見審慎考量。</p></section>
     </section>
     <section class="closing-note"><span>✺</span><p>答案或許還在路上，<br><strong>但你已經向自己，靠近了一點。</strong></p><span class="closing-arrow">↗</span></section>
   </main>
