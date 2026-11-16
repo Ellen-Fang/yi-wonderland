@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6a735">
-  <meta name="description" content="歡迎來到翊想樂園。帶著你的問題，在暖暖的日光下，抽三張屬於你的塔羅牌。">
+  <meta name="description" content="歡迎來到翊想樂園。帶著你的問題，走進想像與直覺之間，抽三張屬於你的塔羅牌。">
   <title>翊想樂園 · YI WONDERLAND</title>
   <link rel="icon" href="/assets/ferris-wheel.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
@@ -23,13 +23,13 @@
       <div class="hero-grain"></div>
       <div class="hero-copy">
         <div class="eyebrow"><span>✦</span> A LITTLE WONDER, A LITTLE CLARITY</div>
-        <h1 id="hero-title">把心裡的問號，<br>交給<span class="sun-word">一點日光<svg viewBox="0 0 350 20" aria-hidden="true"><path d="M5 12 Q175 -3 345 10 M35 18 Q175 7 320 16"/></svg></span>。</h1>
+        <h1 id="hero-title">歡迎來到，<br><span class="sun-word">翊想樂園<svg viewBox="0 0 350 20" aria-hidden="true"><path d="M5 12 Q175 -3 345 10 M35 18 Q175 7 320 16"/></svg></span>。</h1>
         <p>歡迎光臨，今天的你。<br>讓三張塔羅牌，陪你發現另一種可能。</p>
-        <a href="#experience" class="primary-button hero-cta">領取你的日光入場券 <span>↗</span></a>
+        <a href="#experience" class="primary-button hero-cta">領取你的入場券 <span>↗</span></a>
         <div class="hero-note"><span class="mini-sun">✺</span> 不急著找到答案，也是一種出發。</div>
       </div>
       <div class="hero-visual">
-        <img class="park-scene" src="/assets/sunlit-park.svg" alt="橘黃色帳篷、水晶球、摩天輪和漂浮塔羅牌組成的日光遊樂園插畫">
+        <img class="park-scene" src="/assets/sunlit-park.svg" alt="橘黃色帳篷、水晶球、摩天輪和漂浮塔羅牌組成的翊想樂園插畫">
         <span class="scene-caption">EST. TODAY <span>✦</span> OPEN TO POSSIBILITIES</span>
       </div>
       <div class="hero-index">01 — YOUR LITTLE ESCAPE</div>
@@ -70,12 +70,12 @@
         </div>
         <div id="selected-cards" class="selected-cards" aria-live="polite"></div>
         <div id="card-selection" hidden><div class="deck-label"><span>跟著直覺，選一張就好。</span><small>每個位置只抽一次 · 共 78 張</small></div><div id="deck-grid" class="deck-grid" aria-label="可抽取的 78 張牌"></div></div>
-        <div class="draw-actions"><button id="interpret-button" class="primary-button" hidden>打開這次的日光指引 <span>↗</span></button><button id="restart-button" class="text-button">重新開始</button></div>
+        <div class="draw-actions"><button id="interpret-button" class="primary-button" hidden>打開這次的占卜指引 <span>↗</span></button><button id="restart-button" class="text-button">重新開始</button></div>
       </section>
 
-      <section id="loading-panel" class="loading-panel" hidden aria-live="polite"><div class="loading-sun">✺</div><span class="eyebrow">A LITTLE LIGHT IS ON ITS WAY</span><h3>正在把三張牌，串成你的故事。</h3><p>解讀會結合你的問題、牌位與正逆位。<br>趁這個空檔，給自己一個深呼吸。</p><span class="loading-time" id="loading-time">已等待 0 秒</span><p class="field-help">通常只需片刻，忙碌時可能稍久。無需重新抽牌。</p></section>
+      <section id="loading-panel" class="loading-panel" hidden aria-live="polite"><div class="loading-sun">✺</div><span class="eyebrow">YOUR LITTLE WONDER IS ON ITS WAY</span><h3>正在把三張牌，串成你的故事。</h3><p>解讀會結合你的問題、牌位與正逆位。<br>趁這個空檔，給自己一個深呼吸。</p><span class="loading-time" id="loading-time">已等待 0 秒</span><p class="field-help">通常只需片刻，忙碌時可能稍久。無需重新抽牌。</p></section>
 
-      <section id="result-panel" class="result-panel" hidden aria-labelledby="result-title"><div class="result-title"><span class="tag">A LITTLE CLARITY, JUST FOR YOU</span><h3 id="result-title">你的日光指引，到了。</h3><p id="result-question"></p></div><div id="result-summary" class="result-summary"></div><div id="result-cards" class="result-cards"></div><div class="result-bottom"><div class="advice-panel"><span class="eyebrow">SMALL STEPS, REAL POSSIBILITIES</span><h4>帶走一點點行動力</h4><ol id="result-advice"></ol></div><div class="reflection-panel"><span>✺</span><h4>留一個問題給自己</h4><p id="result-reflection"></p></div></div><div class="result-actions"><button id="new-reading-button" class="primary-button">再探索一個問題 <span>↗</span></button><button id="print-button" class="text-button">保存這份指引 ↓</button></div><p class="result-disclaimer">把這份指引當作遊園的紀念，帶走啟發，讓選擇留在自己手裡。重要決定仍請依實際情況與專業意見審慎考量。</p></section>
+      <section id="result-panel" class="result-panel" hidden aria-labelledby="result-title"><div class="result-title"><span class="tag">A LITTLE CLARITY, JUST FOR YOU</span><h3 id="result-title">你的占卜指引，到了。</h3><p id="result-question"></p></div><div id="result-summary" class="result-summary"></div><div id="result-cards" class="result-cards"></div><div class="result-bottom"><div class="advice-panel"><span class="eyebrow">SMALL STEPS, REAL POSSIBILITIES</span><h4>帶走一點點行動力</h4><ol id="result-advice"></ol></div><div class="reflection-panel"><span>✺</span><h4>留一個問題給自己</h4><p id="result-reflection"></p></div></div><div class="result-actions"><button id="new-reading-button" class="primary-button">再探索一個問題 <span>↗</span></button><button id="print-button" class="text-button">保存這份指引 ↓</button></div><p class="result-disclaimer">把這份指引當作遊園的紀念，帶走啟發，讓選擇留在自己手裡。重要決定仍請依實際情況與專業意見審慎考量。</p></section>
     </section>
     <section class="closing-note"><span>✺</span><p>答案或許還在路上，<br><strong>但你已經向自己，靠近了一點。</strong></p><span class="closing-arrow">↗</span></section>
   </main>
@@ -83,4 +83,6 @@
   <dialog id="about-dialog"><button id="close-about" class="dialog-close" aria-label="關閉入園須知">×</button><span class="eyebrow">A TICKET TO YOUR IMAGINATION</span><h2>入園須知</h2><p>歡迎來到翊想樂園。把日常的喧鬧暫留門外，帶著一點好奇，和一件放在心上的事，慢慢走進來。</p><p>在這裡，牌陣是不同的遊園路線，三張牌是沿途偶遇的風景。順著直覺洗牌、選牌，不必急著分辨好壞；有時換個位置看，同一片天空也會有新的模樣。</p><p>盡興探索，也請為答案留一點空白。園裡的指引是一份旅途紀念，不是未來的定稿。喜歡的啟發，就帶回生活裡；不合心意的，讓它隨風留在園中。</p><p>離園之後，方向仍在你手裡。關於健康、金錢與人生的重要選擇，記得回到真實的情況，也聽聽值得信任的專業意見。</p><button id="about-done" class="primary-button">帶著好奇，入園走走 <span>↗</span></button></dialog>
 </body>
 </html>
+
+
 
