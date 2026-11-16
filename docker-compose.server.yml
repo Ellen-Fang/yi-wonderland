@@ -1,0 +1,24 @@
+# 正式主機已有 Caddy 時，單獨使用本檔；不要與本機版 Compose 疊加。
+name: yi-wonderland
+services:
+  backend:
+    image: yi-wonderland:latest
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:////code/storage/readings.sqlite
+    volumes:
+      - ./storage:/code/storage
+    expose:
+      - "8000"
+    networks:
+      existing-caddy:
+        aliases:
+          - yi-wonderland-backend
+    restart: unless-stopped
+
+networks:
+  existing-caddy:
+    external: true
+    name: compose_webnet

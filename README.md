@@ -120,6 +120,30 @@ docker compose up -d --force-recreate backend
 
 ### Caddy 與對外存取
 
+#### 主機已經有 Caddy（本次 Linux 主機）
+
+已提供獨立的 `docker-compose.server.yml`，只啟動後端，加入既有的 `compose_webnet` 網路，不發布主機埠、不啟動第二個 Caddy。先建立 `.env`，再執行：
+
+```bash
+docker compose -f docker-compose.server.yml up --build -d
+docker compose -f docker-compose.server.yml ps
+```
+
+在既有 Caddyfile 最後新增下列獨立區塊，保留原有網站設定：
+
+```caddyfile
+yi-wonderland.duckdns.org {
+    encode zstd gzip
+    reverse_proxy yi-wonderland-backend:8000
+}
+```
+
+後端會同時提供首頁、API 與牌圖，因此不必替既有 Caddy 增加前端掛載。修改前先備份原 Caddyfile，使用 `caddy validate` 驗證後再 `caddy reload`。網域須指向主機，且外部能連入 80／443，才可由既有 Caddy 自動取得 HTTPS 憑證。
+
+使用本部署檔後，後續更新、重建、查看日誌時也都要加上 `-f docker-compose.server.yml`；不要混用本機版啟動指令。
+
+#### 本機獨立 Caddy
+
 ```text
 瀏覽器 → Caddy :8080
            ├── /api/*、/cards/*、/docs → FastAPI :8000
