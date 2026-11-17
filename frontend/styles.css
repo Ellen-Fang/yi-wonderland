@@ -7,3 +7,4 @@
 @media print{.site-header,.hero,.marquee,.steps,.section-heading,.closing-note,footer,.result-actions,.notice,#setup,#draw-panel,#loading-panel{display:none!important}.section-wrap{padding:0;max-width:none}.result-panel{display:block!important}.result-cards{grid-template-columns:repeat(3,1fr)}.result-card{display:block;break-inside:avoid}.result-card .card-image-wrap{height:150px}.result-card .card-image-wrap img{max-height:150px}body{background:white}.result-summary,.advice-panel,.reflection-panel{break-inside:avoid}}
 
 #save-guide-dialog{width:min(680px,92vw);max-height:90dvh;overflow:auto}#guide-preview{display:block;width:100%;height:auto;margin-top:24px}.guide-save-actions{display:flex;flex-wrap:wrap;gap:16px;align-items:center}@media print{#save-guide-dialog{display:none!important}}
+#guide-preview[hidden],#guide-download[hidden],#guide-share[hidden]{display:none}

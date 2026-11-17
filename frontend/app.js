@@ -431,6 +431,13 @@ async function exportGuideImage() {
   const button = $('#image-button');
   button.disabled = true;
   button.textContent = '正在製作圖片…';
+  const dialog = $('#save-guide-dialog');
+  const status = $('#guide-status');
+  status.textContent = '正在製作圖片，請稍候…';
+  $('#guide-preview').hidden = true;
+  $('#guide-download').hidden = true;
+  $('#guide-share').hidden = true;
+  dialog.showModal();
   try {
     const canvas = document.createElement('canvas');
     canvas.width = 1000;
@@ -458,7 +465,11 @@ async function exportGuideImage() {
     const images = [...document.querySelectorAll('#result-cards img')];
     await Promise.all(images.map(async img => {
       img.loading = 'eager';
-      try { await img.decode(); } catch { /* 牌面載入失敗時仍保留完整文字。 */ }
+      let timeout;
+      try {
+        await Promise.race([img.decode(), new Promise(resolve => { timeout = setTimeout(resolve, 5000); })]);
+      } catch { /* 牌面載入失敗時仍保留完整文字。 */ }
+      finally { clearTimeout(timeout); }
     }));
     const pictures = [];
     for (const [index, card] of reading.cards.entries()) {
@@ -498,13 +509,19 @@ async function exportGuideImage() {
     if (!blob) throw new Error('無法產生圖片');
     if (guideImageUrl) URL.revokeObjectURL(guideImageUrl);
     guideImageUrl = URL.createObjectURL(blob);
-    guideImageFile = new File([blob], '翊想樂園-占卜指引.png', { type: 'image/png' });
     $('#guide-preview').src = guideImageUrl;
+    $('#guide-preview').hidden = false;
     $('#guide-download').href = guideImageUrl;
-    $('#guide-share').hidden = !navigator.canShare?.({ files: [guideImageFile] });
-    $('#save-guide-dialog').showModal();
+    $('#guide-download').hidden = false;
+    status.textContent = '圖片已準備好。電腦請點「下載圖片」；手機可長按圖片儲存。';
+    // 分享是額外功能，瀏覽器不支援或限制分享時不影響預覽與下載。
+    guideImageFile = null;
+    try {
+      guideImageFile = new File([blob], '翊想樂園-占卜指引.png', { type: 'image/png' });
+      $('#guide-share').hidden = !(navigator.share && navigator.canShare?.({ files: [guideImageFile] }));
+    } catch { $('#guide-share').hidden = true; }
   } catch {
-    notice('圖片製作失敗，請再試一次，或使用「列印／另存 PDF」。', true);
+    status.textContent = '圖片製作失敗，請關閉後再試一次，或使用「列印／另存 PDF」。';
   } finally {
     button.disabled = false;
     button.textContent = '輸出圖片 ↓';
