@@ -424,6 +424,98 @@ window.addEventListener('blur', releaseMixing);
 $('#interpret-button').addEventListener('click', interpret);
 $('#restart-button').addEventListener('click', restart);
 $('#new-reading-button').addEventListener('click', restart);
+let guideImageUrl = '';
+let guideImageFile = null;
+async function exportGuideImage() {
+  if (!reading?.interpretation) return;
+  const button = $('#image-button');
+  button.disabled = true;
+  button.textContent = '正在製作圖片…';
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1000;
+    const context = canvas.getContext('2d');
+    const blocks = [];
+    let y = 70;
+    const text = (value, size = 28, color = '#50382b') => {
+      context.font = `${size}px system-ui, sans-serif`;
+      for (const paragraph of String(value).split('\n')) {
+        let line = '';
+        for (const character of paragraph) {
+          if (line && context.measureText(line + character).width > 860) {
+            blocks.push({ line, size, color, y }); y += size * 1.65; line = '';
+          }
+          line += character;
+        }
+        blocks.push({ line, size, color, y }); y += size * 1.65;
+      }
+      y += 20;
+    };
+    const result = reading.interpretation;
+    text('翊想樂園 · 你的占卜指引', 42, '#aa4d25');
+    text(reading.question, 32);
+    text(result.summary);
+    const images = [...document.querySelectorAll('#result-cards img')];
+    await Promise.all(images.map(async img => {
+      img.loading = 'eager';
+      try { await img.decode(); } catch { /* 牌面載入失敗時仍保留完整文字。 */ }
+    }));
+    const pictures = [];
+    for (const [index, card] of reading.cards.entries()) {
+      y += 18;
+      text(`${index + 1} / ${card.position.label} · ${card.nameZh}`, 32, '#aa4d25');
+      text(card.orientation === 'reversed' ? '逆位' : '正位', 24);
+      const img = images[index];
+      if (img?.complete && img.naturalWidth && new URL(img.src).origin === location.origin) {
+        const height = 300;
+        pictures.push({ img, y, width: height * img.naturalWidth / img.naturalHeight, height, reversed: card.orientation === 'reversed' });
+        y += height + 38;
+      }
+      text(result.cards[index].interpretation);
+    }
+    text('帶走一點點行動力', 32, '#aa4d25');
+    result.advice.forEach((item, index) => text(`${index + 1}. ${item}`));
+    text('留一個問題給自己', 32, '#aa4d25');
+    text(result.reflection);
+    text($('.result-disclaimer').textContent, 22, '#786457');
+    canvas.height = Math.ceil(y + 50);
+    context.fillStyle = '#fff8eb';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.textBaseline = 'top';
+    for (const block of blocks) {
+      context.font = `${block.size}px system-ui, sans-serif`;
+      context.fillStyle = block.color;
+      context.fillText(block.line, 70, block.y);
+    }
+    for (const picture of pictures) {
+      context.save();
+      context.translate(500, picture.y + picture.height / 2);
+      if (picture.reversed) context.rotate(Math.PI);
+      context.drawImage(picture.img, -picture.width / 2, -picture.height / 2, picture.width, picture.height);
+      context.restore();
+    }
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('無法產生圖片');
+    if (guideImageUrl) URL.revokeObjectURL(guideImageUrl);
+    guideImageUrl = URL.createObjectURL(blob);
+    guideImageFile = new File([blob], '翊想樂園-占卜指引.png', { type: 'image/png' });
+    $('#guide-preview').src = guideImageUrl;
+    $('#guide-download').href = guideImageUrl;
+    $('#guide-share').hidden = !navigator.canShare?.({ files: [guideImageFile] });
+    $('#save-guide-dialog').showModal();
+  } catch {
+    notice('圖片製作失敗，請再試一次，或使用「列印／另存 PDF」。', true);
+  } finally {
+    button.disabled = false;
+    button.textContent = '輸出圖片 ↓';
+  }
+}
+$('#image-button').addEventListener('click', exportGuideImage);
+$('#close-guide').addEventListener('click', () => $('#save-guide-dialog').close());
+$('#guide-share').addEventListener('click', async () => {
+  try { await navigator.share({ files: [guideImageFile], title: '翊想樂園 · 占卜指引' }); }
+  catch (error) { if (error.name !== 'AbortError') notice('分享未成功，請長按預覽圖片儲存，或點選下載。', true); }
+});
 $('#print-button').addEventListener('click', () => window.print());
 $('#about-button').addEventListener('click', () => $('#about-dialog').showModal());
 $('#close-about').addEventListener('click', () => $('#about-dialog').close());
