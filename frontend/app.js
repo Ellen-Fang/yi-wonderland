@@ -102,6 +102,7 @@ function updateComparison() {
   const compare = Boolean(selected?.requiresOptions);
   $('#comparison-options').hidden = !compare;
   $('#option-a').required = compare; $('#option-b').required = compare;
+  renderRecommendations();
 }
 function routeLocation() {
   if (busy) { history.replaceState({}, '', `#${document.body.dataset.screen}`); return; }
@@ -172,20 +173,20 @@ function renderSpreads() {
   });
   $('#start-button').disabled = false;
 }
-function renderRecommendations(locked) {
+function renderRecommendations() {
   const container = $('#spread-recommendations');
   container.replaceChildren();
   container.append(node('p', 'ticket-invitation', '給此刻的你，一張入場券'));
-  let ticketIndex = 0;
-  for (const recommendation of recommendSpreads($('#question').value)) {
-    const spread = spreads.find(item => item.id === recommendation.id);
-    if (!spread) continue;
+  const selectedId = document.querySelector('input[name="spread"]:checked')?.value;
+  const spread = spreads.find(item => item.id === selectedId);
+  if (spread) {
+    const recommendation = recommendSpreads($('#question').value).find(item => item.id === selectedId);
     const item = node('div', 'recommendation-item');
     const copy = node('div', 'ticket-body');
     const kicker = node('span', 'ticket-kicker', 'YI WONDERLAND · ADMIT ONE');
-    copy.append(kicker, node('strong', 'ticket-destination', spread.name), node('p', 'field-help', recommendation.reason));
+    copy.append(kicker, node('strong', 'ticket-destination', spread.name), node('p', 'field-help', recommendation?.reason || spread.description));
     const stub = node('div', 'ticket-stub');
-    const serial = node('span', 'ticket-number', `NO. ${String(++ticketIndex).padStart(4, '0')}`);
+    const serial = node('span', 'ticket-number', `NO. ${String(spreads.indexOf(spread) + 1).padStart(4, '0')}`);
     const logo = node('img', 'ticket-logo');
     logo.src = '/assets/ferris-wheel.svg';
     logo.alt = '翊想樂園';
