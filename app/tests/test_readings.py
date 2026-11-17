@@ -26,7 +26,7 @@ def test_health_catalog_docs_and_images(client):
     assert client.get('/app.js').status_code == 200
     assert client.get('/assets/sunlit-park.svg').status_code == 200
     assert client.get('/api/health').json() == {'status': 'ok'}
-    assert len(client.get('/api/spreads').json()['spreads']) == 4
+    assert len(client.get('/api/spreads').json()['spreads']) == 7
     assert client.get('/docs').status_code == 200
     schema = client.get('/openapi.json').json()
     assert '/api/readings/{reading_id}/draw' in schema['paths']
@@ -202,3 +202,18 @@ def test_provider_contract_and_errors(client, monkeypatch):
         asyncio.run(interpret_reading(drawn))
     assert exc.value.code == 'AI_NOT_CONFIGURED'
 
+
+
+@pytest.mark.parametrize('spread_id', ['relationship-communication', 'career-preparation', 'self-check-in'])
+def test_topic_spread_complete_and_restore(client, spread_id):
+    reading, headers = create(client, spreadId=spread_id)
+    drawn = draw_three(client, reading, headers)
+    assert drawn['status'] == 'drawn'
+    assert [card['position'] for card in drawn['cards']] == reading['spread']['positions']
+    path = f'/api/readings/{reading["id"]}'
+    response = client.post(path + '/interpretation', headers=headers)
+    assert response.status_code == 200
+    restored = client.get(path, headers=headers).json()
+    assert restored['status'] == 'completed'
+    assert restored['cards'] == drawn['cards']
+    assert [card['positionId'] for card in restored['interpretation']['cards']] == [position['id'] for position in reading['spread']['positions']]

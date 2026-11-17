@@ -87,5 +87,71 @@
         "meaning": "比較兩者時值得留意的價值與取捨"
       }
     ]
+  },
+  {
+    "id": "relationship-communication",
+    "name": "關係與溝通",
+    "description": "釐清自己的需求與互動盲點，找到可以嘗試的溝通方式。",
+    "positions": [
+      {
+        "id": "needs",
+        "label": "我的需求",
+        "meaning": "使用者在關係中需要被看見的感受與需求"
+      },
+      {
+        "id": "blindspot",
+        "label": "互動中的盲點",
+        "meaning": "根據已知互動探索盲點，不推定對方內心"
+      },
+      {
+        "id": "communication",
+        "label": "可採取的溝通",
+        "meaning": "可嘗試的表達、傾聽與界線設定"
+      }
+    ]
+  },
+  {
+    "id": "career-preparation",
+    "name": "求職與面試",
+    "description": "整理能發揮的優勢、準備缺口與下一步。",
+    "positions": [
+      {
+        "id": "strength",
+        "label": "可發揮的優勢",
+        "meaning": "可在求職或面試中展現的能力與資源"
+      },
+      {
+        "id": "gap",
+        "label": "準備缺口",
+        "meaning": "值得補強或查證的準備事項，不臆測雇主評價"
+      },
+      {
+        "id": "next-step",
+        "label": "下一步",
+        "meaning": "可執行的準備行動，不保證錄取"
+      }
+    ]
+  },
+  {
+    "id": "self-check-in",
+    "name": "自我整理",
+    "description": "辨認感受、理解需求，找到照顧自己的小行動。",
+    "positions": [
+      {
+        "id": "feelings",
+        "label": "當下感受",
+        "meaning": "探索當下可能的感受，不作心理或醫療診斷"
+      },
+      {
+        "id": "needs",
+        "label": "背後需求",
+        "meaning": "與感受相關、值得使用者確認的需求"
+      },
+      {
+        "id": "care",
+        "label": "照顧自己的行動",
+        "meaning": "符合目前情境、可負擔且具體的小行動"
+      }
+    ]
   }
 ]

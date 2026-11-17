@@ -1,3 +1,4 @@
+import { recommendSpreads } from './recommendations.mjs';
 const $ = (selector) => document.querySelector(selector);
 const sessionKey = 'sunlit-tarot-session';
 const draftKey = 'yi-wonderland-draft';
@@ -72,6 +73,7 @@ function showSetup(page) {
   $('#question-step').hidden = page !== 'question';
   $('#spread-step').hidden = page !== 'spread';
   $('#spread-question-preview').textContent = $('#question').value.trim();
+  if (page === 'spread') renderRecommendations(locked);
   showPanel('setup', page); step(page === 'question' ? 0 : 1);
   $('#start-button').firstChild.textContent = reading ? '回到這次的牌組 ' : '準備好了，去洗牌 ';
   saveDraft();
@@ -170,6 +172,31 @@ function renderSpreads() {
   });
   $('#start-button').disabled = false;
 }
+function renderRecommendations(locked) {
+  const container = $('#spread-recommendations');
+  container.replaceChildren();
+  container.append(node('p', 'ticket-invitation', '給此刻的你，一張入場券'));
+  let ticketIndex = 0;
+  for (const recommendation of recommendSpreads($('#question').value)) {
+    const spread = spreads.find(item => item.id === recommendation.id);
+    if (!spread) continue;
+    const item = node('div', 'recommendation-item');
+    const copy = node('div', 'ticket-body');
+    const kicker = node('span', 'ticket-kicker', 'YI WONDERLAND · ADMIT ONE');
+    copy.append(kicker, node('strong', 'ticket-destination', spread.name), node('p', 'field-help', recommendation.reason));
+    const stub = node('div', 'ticket-stub');
+    const serial = node('span', 'ticket-number', `NO. ${String(++ticketIndex).padStart(4, '0')}`);
+    const logo = node('img', 'ticket-logo');
+    logo.src = '/assets/ferris-wheel.svg';
+    logo.alt = '翊想樂園';
+    logo.width = 52; logo.height = 52;
+    const brand = node('div', 'ticket-brand');
+    brand.append(logo, node('strong', 'ticket-brand-name', '翊想樂園'), node('span', 'ticket-brand-en', 'YI WONDERLAND'));
+    const barcode = node('span', 'ticket-barcode'); barcode.setAttribute('aria-hidden', 'true');
+    stub.append(serial, brand, barcode);
+    item.append(copy, stub); container.append(item);
+  }
+}
 function imageFor(card) {
   const image = node('img', card.orientation === 'reversed' ? 'reversed' : '');
   // 圖片路徑由後端提供，只接受專案牌組路徑。
@@ -195,8 +222,8 @@ function renderDraw(view = shuffled ? 'draw' : 'shuffle') {
   $('#shuffle-button').hidden = shuffled;
   $('#shuffle-scene').setAttribute('aria-disabled', String(shuffled));
   $('#shuffle-scene').tabIndex = shuffled ? -1 : 0;
-  $('#shuffle-help').textContent = shuffled ? '這副牌已完成洗牌。可以返回查看牌陣，或繼續選牌；原本的牌序與正逆位都會保留。' : '用手指，或按住觸控板／滑鼠，在牌桌上來回畫圈，把牌慢慢混開。也可以聚焦牌桌後，使用方向鍵洗牌。';
-  if (shuffled) $('#shuffle-status').textContent = '牌組已固定，返回查看不會改變抽牌結果。';
+  $('#shuffle-help').textContent = shuffled ? '剛才的心意，已留在這副牌裡。準備好，就繼續走走。' : '用手指，或按住觸控板／滑鼠，在牌桌上來回畫圈，把牌慢慢混開。也可以聚焦牌桌後，使用方向鍵洗牌。';
+  if (shuffled) $('#shuffle-status').textContent = '你的牌，還在這裡等你。';
   $('#draw-back').textContent = drawing ? '← 回到洗牌桌' : '← 回到牌陣';
   $('#draw-back').disabled = busy;
   const slots = $('#selected-cards'); slots.replaceChildren();
@@ -332,17 +359,48 @@ $('#reading-form').addEventListener('submit', async event => {
 $('#shuffle-button').addEventListener('click', async () => {
   if (busy || mixRatio < 1) return;
   busy = true; $('#shuffle-button').disabled = true; $('#restart-button').disabled = true;
-  $('#shuffle-button').firstChild.textContent = '正在收攏你的牌組 ';
+  $('#shuffle-button').firstChild.textContent = '帶著這份心意出發 ';
   releaseMixing();
+  $('#draw-back').disabled = true;
+  $('#shuffle-status').textContent = '把心放輕，下一站就到了。';
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const gathering = reducedMotion ? [] : mixCards.map((card, index) => card.element.animate([
+    { left: card.element.style.left, top: card.element.style.top, transform: card.element.style.transform },
+    { left: '50%', top: '50%', transform: `translate(-50%, -50%) translate(${(index % 3) - 1}px, ${-index * .35}px) rotate(0deg)` }
+  ], { duration: 650, delay: index * 15, easing: 'cubic-bezier(.22,.7,.25,1)', fill: 'forwards' }));
   try {
     // 手勢只決定視覺互動；實際牌序仍由後端安全亂數產生。
-    reading = await api(`/readings/${reading.id}/shuffle`, { method: 'POST' });
+    const [updated] = await Promise.all([
+      api(`/readings/${reading.id}/shuffle`, { method: 'POST' }),
+      Promise.all(gathering.map(animation => animation.finished))
+    ]);
+    reading = updated;
     shuffled = true; saveSession();
+    renderDraw('draw');
+    // 等抽牌頁完成排版，讓逐張落桌的動作出現在可見範圍。
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    $('#card-selection').scrollIntoView({ block: 'start', behavior: 'instant' });
+    $('#draw-title').textContent = '讓直覺，帶你遇見。';
+    $('#draw-subtitle').textContent = '不急，跟著自己的節奏就好。';
+    const cards = Array.from($('#deck-grid').children);
+    $('#deck-grid').setAttribute('aria-busy', 'true');
+    try {
+      if (!reducedMotion) {
+        const dealing = cards.map((card, index) => {
+          card.style.visibility = 'hidden';
+          return card.animate([
+            { visibility: 'visible', transform: 'translateY(-18px) scale(1.04) rotate(-2deg)' },
+            { visibility: 'visible', transform: 'translateY(0) scale(1) rotate(0deg)' }
+          ], { duration: 100, delay: index * 24, easing: 'cubic-bezier(.15,.65,.3,1)', fill: 'forwards' });
+        });
+        await Promise.all(dealing.map(animation => animation.finished));
+      }
+    } finally { $('#deck-grid').removeAttribute('aria-busy'); }
   } catch (error) { notice(`${error.message} 牌桌仍為你保留，請再試一次。`, true); }
   finally {
+    gathering.forEach(animation => animation.cancel());
     busy = false; $('#shuffle-button').disabled = mixRatio < 1;
     $('#shuffle-button').firstChild.textContent = '洗好了，開始選牌 '; renderDraw();
-    if (shuffled) $('#deck-grid button:not(:disabled)')?.focus({ preventScroll: true });
   }
 });
 
